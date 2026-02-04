@@ -6,17 +6,17 @@
 
 ## Features
  ### 1.Number Input
-  -Accepts multi-digit numbers (e.g., 52719)
-  -Each digit is processed sequentially
+  - Accepts multi-digit numbers (e.g., 52719)
+  - Each digit is processed sequentially
 
  ### 2.Digit Analysis
-  -Processing Time: 0.5 seconds per digit
-  -Even Digits (0, 2, 4, 6, 8):
-   *LED blinks with 200ms ON / 200ms OFF pattern
-   *Total cycle = 400ms (within the 0.5s processing window)
-  -Odd Digits (1, 3, 5, 7, 9):
-   *LED toggles state (ON ↔ OFF)
-   *Single state change per digit
+-Processing Time: 0.5 seconds per digit
+-Even Digits (0, 2, 4, 6, 8):
+  - LED blinks with 200ms ON / 200ms OFF pattern
+  - Total cycle = 400ms (within the 0.5s processing window)
+-Odd Digits (1, 3, 5, 7, 9):
+  - LED toggles state (ON ↔ OFF)
+  - Single state change per digit
 
 ### 3.First Button Press (Freeze Mode)
  1. LED Freeze:
@@ -42,8 +42,8 @@
 
 ### 4.New Number Input
 -Completion-Based Input
-  *After full number analysis: "Analysis complete. Enter new number:"
-  *System waits for new numeric input
+  - After full number analysis: "Analysis complete. Enter new number:"
+  - System waits for new numeric input
 
 -Interrupt-Based Input 
 USER CAN INPUT NEW NUMBER AT ANY TIME:
@@ -72,13 +72,13 @@ USER CAN INPUT NEW NUMBER AT ANY TIME:
 
 ### 7.Implementation Details
  - Timing Control
-   *Digit processing: 500ms fixed duration
-   *LED blink: 200ms ON, 200ms OFF (even digits)
-   *LED toggle: Instantaneous (odd digits)
+  - Digit processing: 500ms fixed duration
+  - LED blink: 200ms ON, 200ms OFF (even digits)
+  - LED toggle: Instantaneous (odd digits)
 
 - Interrupt Handling
-  *Button press triggers immediate interrupt
-  *Non-blocking UART communication
-  *State preservation during freeze mode
+ - Button press triggers immediate interrupt
+ - Non-blocking UART communication
+ - State preservation during freeze mode
 
 
