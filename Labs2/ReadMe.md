@@ -81,12 +81,4 @@ USER CAN INPUT NEW NUMBER AT ANY TIME:
   *Non-blocking UART communication
   *State preservation during freeze mode
 
-### 8.UART Communication
-System Start: "Enter a number:"
-Even Digit:   "Digit X: Even - Blinking LED"
-Odd Digit:    "Digit X: Odd - Toggling LED"
-Button Press: "Button pressed. Led locked. Count=x"
-New Input:    "New number detected. Starting analysis..."
-Complete:     "Analysis complete. Enter new number:"
-
 
