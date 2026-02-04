@@ -62,15 +62,8 @@ USER CAN INPUT NEW NUMBER AT ANY TIME:
 
 ### 5.System Architecture
 
-[Start] → [Wait for Number] → [Process Digit 1] → [Process Digit 2] → ...
-      ↑         ↑                    ↑
-      │         │              [Button Press?]
-      │         │                    ↓
-      │    [New Number]     [Freeze LED, Log Count]
-      │         │                    ↓
-      └─────────┼─────────[Continue UART Analysis]
-                │                    ↓
-                └───────[Second Press → Resume]
+<img width="2618" height="5995" alt="deepseek_mermaid_20260204_15084f" src="https://github.com/user-attachments/assets/a60ef661-e1b2-48cb-b1ce-a2b068f07ad6" />
+
 
 ### 6.State Management
 - Normal State: LED responds to digit parity
@@ -96,20 +89,4 @@ Button Press: "Button pressed. Led locked. Count=x"
 New Input:    "New number detected. Starting analysis..."
 Complete:     "Analysis complete. Enter new number:"
 
-           graph TD
-    A[Start] --> B[Wait for Number Input]
-    B --> C{Process Next Digit}
-    C --> D{Digit Even?}
-    D -->|Yes| E[LED Blink Pattern]
-    D -->|No| F[LED Toggle]
-    E --> G{Button Pressed?}
-    F --> G
-    G -->|Yes| H[Freeze LED State]
-    H --> I[Print Count to UART]
-    I --> J{New Input?}
-    J -->|Yes| B
-    J -->|No| K{Button Pressed Again?}
-    K -->|Yes| C
-    K -->|No| L{Analysis Complete?}
-    L -->|Yes| B
-    L -->|No| C
+
