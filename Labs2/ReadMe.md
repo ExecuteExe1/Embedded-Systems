@@ -71,12 +71,12 @@ USER CAN INPUT NEW NUMBER AT ANY TIME:
 - Input State: Accepting new numeric input
 
 ### 7.Implementation Details
- - Timing Control
+1.Timing Control
   - Digit processing: 500ms fixed duration
   - LED blink: 200ms ON, 200ms OFF (even digits)
   - LED toggle: Instantaneous (odd digits)
 
-- Interrupt Handling
+2.Interrupt Handling
  - Button press triggers immediate interrupt
  - Non-blocking UART communication
  - State preservation during freeze mode
