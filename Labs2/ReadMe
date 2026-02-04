@@ -1,0 +1,115 @@
+#Real-Time Number Analysis System
+  A real-time embedded system that analyzes numeric input digits with LED feedback and interrupt handling capabilities.
+
+##System Overview
+ This system processes multi-digit numbers in real-time, providing visual feedback through an LED and handling user interrupts via button presses with UART communication.
+
+##Features
+ ### 1.Number Input
+  -Accepts multi-digit numbers (e.g., 52719)
+  -Each digit is processed sequentially
+
+ ### 2.Digit Analysis
+  -Processing Time: 0.5 seconds per digit
+  -Even Digits (0, 2, 4, 6, 8):
+   *LED blinks with 200ms ON / 200ms OFF pattern
+   *Total cycle = 400ms (within the 0.5s processing window)
+  -Odd Digits (1, 3, 5, 7, 9):
+   *LED toggles state (ON ↔ OFF)
+   *Single state change per digit
+
+### 3.First Button Press (Freeze Mode)
+ 1. LED Freeze:
+   - Current LED state is locked
+   - No further LED changes occur
+
+2. UART Output:
+   "Button pressed. Led locked. Count=x"
+   Where x = total button presses since system start
+
+3. Analysis Continues:
+   - Digit analysis proceeds normally
+   - All processing logged via UART
+   - LED remains static
+
+4. Priority System:
+   UART vs Button → Button has HIGHER priority
+
+### 3.2Second Button Press (Exit Freeze)
+  - Returns to normal operation
+  - LED resumes responding to digit analysis
+  - System continues with current number analysis
+
+### 4.New Number Input
+-Completion-Based Input
+  *After full number analysis: "Analysis complete. Enter new number:"
+  *System waits for new numeric input
+
+-Interrupt-Based Input 
+USER CAN INPUT NEW NUMBER AT ANY TIME:
+
+1. Immediate Response:
+   - Current analysis STOPS immediately
+   - No completion of current digit
+
+2. Clean Restart:
+   - New analysis begins from first digit
+   - LED resets to initial state
+   - Button press count persists
+
+3. Priority:
+   New Number Input > Current Analysis
+
+### 5.System Architecture
+
+[Start] → [Wait for Number] → [Process Digit 1] → [Process Digit 2] → ...
+      ↑         ↑                    ↑
+      │         │              [Button Press?]
+      │         │                    ↓
+      │    [New Number]     [Freeze LED, Log Count]
+      │         │                    ↓
+      └─────────┼─────────[Continue UART Analysis]
+                │                    ↓
+                └───────[Second Press → Resume]
+
+### 6.State Management
+- Normal State: LED responds to digit parity
+- Frozen State: LED static, UART active
+- Input State: Accepting new numeric input
+
+### 7.Implementation Details
+ - Timing Control
+   *Digit processing: 500ms fixed duration
+   *LED blink: 200ms ON, 200ms OFF (even digits)
+   *LED toggle: Instantaneous (odd digits)
+
+- Interrupt Handling
+  *Button press triggers immediate interrupt
+  *Non-blocking UART communication
+  *State preservation during freeze mode
+
+### 8.UART Communication
+System Start: "Enter a number:"
+Even Digit:   "Digit X: Even - Blinking LED"
+Odd Digit:    "Digit X: Odd - Toggling LED"
+Button Press: "Button pressed. Led locked. Count=x"
+New Input:    "New number detected. Starting analysis..."
+Complete:     "Analysis complete. Enter new number:"
+
+           graph TD
+    A[Start] --> B[Wait for Number Input]
+    B --> C{Process Next Digit}
+    C --> D{Digit Even?}
+    D -->|Yes| E[LED Blink Pattern]
+    D -->|No| F[LED Toggle]
+    E --> G{Button Pressed?}
+    F --> G
+    G -->|Yes| H[Freeze LED State]
+    H --> I[Print Count to UART]
+    I --> J{New Input?}
+    J -->|Yes| B
+    J -->|No| K{Button Pressed Again?}
+    K -->|Yes| C
+    K -->|No| L{Analysis Complete?}
+    L -->|Yes| B
+    L -->|No| C
