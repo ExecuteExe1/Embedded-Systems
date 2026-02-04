@@ -1,10 +1,10 @@
-#Real-Time Number Analysis System
+# Real-Time Number Analysis System
   A real-time embedded system that analyzes numeric input digits with LED feedback and interrupt handling capabilities.
 
-##System Overview
+## System Overview
  This system processes multi-digit numbers in real-time, providing visual feedback through an LED and handling user interrupts via button presses with UART communication.
 
-##Features
+## Features
  ### 1.Number Input
   -Accepts multi-digit numbers (e.g., 52719)
   -Each digit is processed sequentially
