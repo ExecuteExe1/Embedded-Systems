@@ -1,35 +1,49 @@
-# Real-Time Embedded Systems
+# 🚀 Real-Time Embedded Systems
 
-Welcome to the **Real-Time Embedded Systems** project.
+> **WebSocket Server Implementation for Raspberry Pi**
+
+[![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi-red?style=flat-square&logo=raspberry-pi)](https://www.raspberrypi.org/)
+[![Language](https://img.shields.io/badge/language-C-blue?style=flat-square&logo=c)](https://en.wikipedia.org/wiki/C_(programming_language))
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![Build](https://img.shields.io/badge/build-Makefile-orange?style=flat-square)](Makefile)
+
+---
+
+## 📖 Overview
 
 This repository contains a **WebSocket server implementation for Raspberry Pi** developed as part of the Real-Time Embedded Systems assignment.
 
-The application connects to a WebSocket data stream, processes incoming messages in real time, and records runtime performance metrics for monitoring and analysis.
+The application:
+- 🔌 Connects to a WebSocket data stream
+- ⚡ Processes incoming messages in real time
+- 📊 Records runtime performance metrics for monitoring and analysis
+- 🎯 Optimized for embedded systems with limited resources
 
 ---
 
-# Requirements
+## 📋 Requirements
 
-Before building and running the project, make sure you have:
+Ensure your Raspberry Pi meets the following requirements before proceeding:
 
-- Raspberry Pi running Linux (Raspberry Pi OS recommended)
-- GCC compiler
-- Make build system
-- Required development libraries
-- `tmux` for running the application remotely
-- `gnuplot` for metric visualization (optional)
+| Requirement | Description |
+|-------------|-------------|
+| 🖥️ **Hardware** | Raspberry Pi (any model with Linux support) |
+| 🐧 **OS** | Raspberry Pi OS (or any Debian-based Linux) |
+| 🔧 **Compiler** | GCC compiler with build tools |
+| 📦 **Build System** | Make |
+| 📚 **Libraries** | libwebsockets-dev, libssl-dev, libcjson-dev |
+| 🖥️ **Session Manager** | tmux (for remote execution) |
+| 📈 **Visualization** | gnuplot (optional, for metrics visualization) |
 
 ---
 
-# Installation
+## 🛠️ Installation
 
-Clone the repository:
+### 1️⃣ Clone the Repository
 
 ```bash
 git clone <repository-url>
 cd <repository-folder>
-```
-
 Install the required dependencies:
 
 ```bash
