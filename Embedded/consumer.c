@@ -6,15 +6,10 @@
 #include <string.h>
 #include <stdio.h>
 
-/*
- * Consumer thread entry point.
- *
- * Blocks on the ring buffer's condition variable until the producer
- * signals new data, pops one frame at a time, parses only the "kind"
- * field, and bumps the matching global counter under its mutex.
- *
- * IMPORTANT (performance / real-time constraint): no printf(), no file
- * I/O happens in this thread. All logging is the Logger thread's job.
+/* Consumer thread entry point.*/
+/* Blocks on the ring buffer's condition variable until the producer signals new data, pops one frame at a time, parses only the "kind" field, and bumps the matching global counter under its mutex.
+ */
+/* IMPORTANT (performance / real-time constraint): no printf(), no file  I/O happens in this thread. All logging is the Logger thread's job.
  */
 void *consumer_thread_main(void *arg)
 {
@@ -29,8 +24,7 @@ void *consumer_thread_main(void *arg)
 
         cJSON *root = cJSON_ParseWithLength(buf, len);
         if (!root) {
-            /* Malformed / partial JSON: count as "info" so it is not
-             * silently lost from the record. */
+            /* Malformed / partial JSON: count as "info" so it is not silently lost from the record. */
             counters_increment(&g_state.counters, "info");
             continue;
         }

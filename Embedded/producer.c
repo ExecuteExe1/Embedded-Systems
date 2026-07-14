@@ -9,116 +9,113 @@
 #include <unistd.h>
 #include <time.h>
 
-/* Per-connection buffer used to reassemble fragmented WS messages
- * (Jetstream frames can arrive split across several LWS_CALLBACK_CLIENT_RECEIVE
- * calls; lws tells us via lws_is_final_fragment()). */
+/* Per-connection buffer used to reassemble fragmented WS messages 
+ (Jetstream frames can arrive split across several LWS_CALLBACK_CLIENT_RECEIVE  calls; lws tells us via lws_is_final_fragment()). */
 typedef struct {
     char   *accum;
     size_t  accum_len;
     size_t  accum_cap;
-} per_session_data_t;
+} per_session_data_t;  /*WebSocket messages can arrive split*/
 
-static struct lws_context *g_ctx = NULL;
-static volatile sig_atomic_t g_want_exit = 0;
+static struct lws_context *g_ctx = NULL; /*Global Websocket variables,the libwebsockets contect*/
+static volatile sig_atomic_t g_want_exit = 0; /*A shutdown flag*/
 
+/*Combines pieces of a WebSocket message*/
 static void append_fragment(per_session_data_t *psd, const void *in, size_t len)
 {
-    if (psd->accum_len + len + 1 > psd->accum_cap) {
-        size_t newcap = (psd->accum_cap == 0 ? 4096 : psd->accum_cap * 2);
+    if (psd->accum_len + len + 1 > psd->accum_cap) { /*checks capacity*/
+        size_t newcap = (psd->accum_cap == 0 ? 4096 : psd->accum_cap *2); /*doubles buffer size,this avoids re-allocating every packet*/
         while (newcap < psd->accum_len + len + 1) newcap *= 2;
-        if (newcap > MAX_MSG_LEN * 4) newcap = MAX_MSG_LEN * 4; /* hard cap */
-        char *tmp = realloc(psd->accum, newcap);
+        if (newcap > MAX_MSG_LEN * 4) newcap = MAX_MSG_LEN * 4; /* prevents memory "explosion"*/
+        char *tmp = realloc(psd->accum, newcap); /*Moves buffer if needed*/
         if (!tmp) return; /* drop on OOM, extremely unlikely on a Pi */
         psd->accum = tmp;
         psd->accum_cap = newcap;
     }
     size_t room = psd->accum_cap - 1 - psd->accum_len;
     size_t n = (len < room) ? len : room;
-    memcpy(psd->accum + psd->accum_len, in, n);
+    memcpy(psd->accum + psd->accum_len, in, n); /*Copy fragment*/
     psd->accum_len += n;
 }
 
+/*Called automatically by libwebsockets*/
 static int callback_jetstream(struct lws *wsi, enum lws_callback_reasons reason,
                                void *user, void *in, size_t len)
 {
     per_session_data_t *psd = (per_session_data_t *)user;
     switch (reason) {
-    case LWS_CALLBACK_CLIENT_ESTABLISHED:
+    case LWS_CALLBACK_CLIENT_ESTABLISHED:  /*Case 1:Connected*/
         lwsl_notice("Jetstream: connection established\n");
-        conn_status_set(&g_state.conn, CONN_CONNECTED);
-        if (psd) { psd->accum_len = 0; }
+        conn_status_set(&g_state.conn, CONN_CONNECTED); /*Updates shared state*/
+        if (psd) { psd->accum_len = 0; } /*Reset fragment buffer*/
         break;
-    case LWS_CALLBACK_CLIENT_RECEIVE:
+    case LWS_CALLBACK_CLIENT_RECEIVE: /*Case 2:Receive Data:Every websocket packet enters here*/
         if (psd) {
-            append_fragment(psd, in, len);
-            if (lws_is_final_fragment(wsi)) {
-                ring_buffer_push(&g_state.ring, psd->accum, psd->accum_len);
+            append_fragment(psd, in, len); /*append*/
+            if (lws_is_final_fragment(wsi)) { /*checks if  the whole Json message is  complete?*/
+                ring_buffer_push(&g_state.ring, psd->accum, psd->accum_len);/*if yes we push and reset,ready for the next message*/
                 psd->accum_len = 0;
             }
         }
         break;
-    case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
+    case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: /*Case3:Connection Error,DNS failure,ssl failure,timeout etc etc*/
         lwsl_warn("Jetstream: connection error: %s\n",
                   in ? (char *)in : "(no info)");
-        conn_status_set(&g_state.conn, CONN_DISCONNECTED);
+        conn_status_set(&g_state.conn, CONN_DISCONNECTED); /*logger records outrage*/
         break;
-    case LWS_CALLBACK_CLIENT_CLOSED:
+    case LWS_CALLBACK_CLIENT_CLOSED:/*Case4:Closed connection*/
         lwsl_warn("Jetstream: connection closed\n");
-        conn_status_set(&g_state.conn, CONN_DISCONNECTED);
+        conn_status_set(&g_state.conn, CONN_DISCONNECTED); /*same actions as case3*/
         break;
-    case LWS_CALLBACK_WSI_DESTROY:
-        if (psd && psd->accum) { free(psd->accum); psd->accum = NULL; }
+    case LWS_CALLBACK_WSI_DESTROY:/*Case5:Destroy connection*/
+        if (psd && psd->accum) { free(psd->accum); psd->accum = NULL; }/*free memory*/
         break;
     default:
         break;
     }
     return 0;
 }
-
+/*Defines our Websocket handler*/
 static const struct lws_protocols protocols[] = {
     {
         .name                  = "jetstream-protocol",
-        .callback              = callback_jetstream,
-        .per_session_data_size = sizeof(per_session_data_t),
-        .rx_buffer_size        = 0,
+        .callback              = callback_jetstream,  /*Every event goes there*/
+        .per_session_data_size = sizeof(per_session_data_t), /*session data*/
+        .rx_buffer_size        = 0, 
     },
     { 0 } /* terminator: zero-init all fields, robust across lws versions */
 };
-
+/*Creates connection request*/
 static struct lws *attempt_connect(struct lws_context *ctx)
 {
     struct lws_client_connect_info ccinfo;
-    memset(&ccinfo, 0, sizeof(ccinfo));
-    ccinfo.context        = ctx;
-    ccinfo.address        = WS_HOST;
-    ccinfo.port           = WS_PORT;
-    ccinfo.path           = WS_PATH;
+    memset(&ccinfo, 0, sizeof(ccinfo)); /*Clear structure*/
+    ccinfo.context        = ctx; 
+    ccinfo.address        = WS_HOST; /*Set your server*/
+    ccinfo.port           = WS_PORT; /*Set the port*/
+    ccinfo.path           = WS_PATH; /*Set the path*/
     ccinfo.host           = ccinfo.address;
     ccinfo.origin         = ccinfo.address;
     ccinfo.protocol       = protocols[0].name;
-    ccinfo.ssl_connection = LCCSCF_USE_SSL;
+    ccinfo.ssl_connection = LCCSCF_USE_SSL; /*Enable SSL*/
 
-    conn_status_set(&g_state.conn, CONN_CONNECTING);
-    lwsl_notice("Jetstream: attempting connection to wss://%s%s\n", WS_HOST, WS_PATH);
+    conn_status_set(&g_state.conn, CONN_CONNECTING); /*State before attempting*/
+    lwsl_notice("Jetstream: attempting connection to wss://%s%s\n", WS_HOST, WS_PATH);/*Actually opens socket*/
     return lws_client_connect_via_info(&ccinfo);
 }
 
-/*
- * Producer thread entry point.
- *
- * Runs the libwebsockets event loop (fully event-driven / non-blocking on
- * the network side) and owns the reconnection state machine: whenever the
- * connection drops, it backs off exponentially (capped) and retries until
- * either it reconnects or the program is told to shut down.
- *
- * If WebSocket-level retries alone don't recover within
- * WIFI_RESET_THRESHOLD_SEC, it escalates to an OS-level Wi-Fi interface
- * reset (see network_reset.c). That reset now verifies for itself
- * whether it actually restored connectivity (a real IPv4 address), not
- * just whether `ip link set up` exited 0 - a toggled-but-still-broken
- * link would otherwise silently leave us dead until the next cooldown
- * expired, which is what caused the multi-hour gaps seen in earlier runs.
- */
+/*Producer thread entry point.
+  Runs the libwebsockets event loop (fully event-driven / non-blocking on
+  the network side) and owns the reconnection state machine: whenever the
+  connection drops, it backs off exponentially (capped) and retries until
+  either it reconnects or the program is told to shut down.
+  If WebSocket-level retries alone don't recover within
+  WIFI_RESET_THRESHOLD_SEC, it escalates to an OS-level Wi-Fi interface
+  reset (see network_reset.c). That reset now verifies for itself
+  whether it actually restored connectivity (a real IPv4 address), not
+  just whether `ip link set up` exited 0 - a toggled-but-still-broken
+  link would otherwise silently leave us dead until the next cooldown
+  expired, which is what caused the multi-hour gaps seen in earlier runs. */
 void *producer_thread_main(void *arg)
 {
     (void)arg;
@@ -138,53 +135,39 @@ void *producer_thread_main(void *arg)
 
     unsigned int backoff_ms = RECONNECT_BACKOFF_MIN_MS;
 
-    /* Tracks when the CURRENT connection attempt started, so the
-     * watchdog below can detect an attempt that libwebsockets silently
-     * abandoned without ever calling our callback (see comment below). */
+    /* Tracks when the CURRENT connection attempt started, so the watchdog below can detect an attempt that libwebsockets silently abandoned without ever calling our callback (see comment below). */
     struct timespec attempt_start;
     clock_gettime(CLOCK_MONOTONIC, &attempt_start);
 
     struct lws *wsi = attempt_connect(g_ctx);
     if (!wsi) {
-        /* Some failures (e.g. no usable route immediately available)
-         * make lws_client_connect_via_info() fail synchronously,
-         * returning NULL without ever invoking our callback. Catch
-         * that directly instead of waiting on a callback that will
-         * never come. */
+        /* Some failures (e.g. no usable route immediately available) make lws_client_connect_via_info() fail synchronously, returning NULL without ever invoking our callback. Catch that directly instead of waiting on a callback that will never come */
         lwsl_warn("Jetstream: connect call failed synchronously (returned NULL)\n");
         conn_status_set(&g_state.conn, CONN_DISCONNECTED);
     }
 
-    /* Tracks how long we've been continuously disconnected, and when we
-     * last force-reset the Wi-Fi interface, so we only intervene at the
-     * OS/link level after the WebSocket-level retries have clearly had
-     * enough time to work on their own, and not more often than the
-     * cooldown allows. CLOCK_MONOTONIC is used since it can't jump
-     * backwards/forwards from NTP adjustments during a long outage. */
+    /* Tracks how long we've been continuously disconnected, and when we last force-reset the Wi-Fi interface, so we only intervene at the OS/link level after the WebSocket-level retries have clearly had enough time to work on their own, and not more often than the cooldown allows. CLOCK_MONOTONIC is used since it can't jump backwards/forwards from NTP adjustments during a long outage. */
     struct timespec disconnect_since;
     int have_disconnect_since = 0;
     struct timespec last_reset_time;
     int have_last_reset = 0;
 
     while (g_state.running) {
-        /* lws_service returns roughly every `timeout_ms`, or sooner if
-         * there is network activity to process. This keeps the producer
-         * responsive to new frames while still letting us poll the
-         * shutdown flag and connection state regularly. */
+        /* lws_service returns roughly every `timeout_ms`, or sooner if there is network activity to process. This keeps the producer responsive to new frames while still letting us poll the shutdown flag and connection state regularly. */
         lws_service(g_ctx, 100);
 
         conn_state_t st = (conn_state_t)atomic_load(&g_state.conn.state);
 
         /* Watchdog: certain lws failure paths (DNS resolves but no
-         * route to any resolved address, netlink races right after an
-         * interface bounce) destroy the connection attempt WITHOUT
-         * ever invoking LWS_CALLBACK_CLIENT_CONNECTION_ERROR. When
-         * that happens, `state` gets stuck at CONNECTING forever and
-         * the retry branch below never fires again - this is exactly
-         * what caused a real 18h+ run to never recover. If we've been
-         * "connecting" longer than any legitimate handshake could
-         * take, force it back to DISCONNECTED ourselves so the retry
-         * logic runs regardless of whether lws ever tells us it failed. */
+           route to any resolved address, netlink races right after an
+           interface bounce) destroy the connection attempt WITHOUT
+           ever invoking LWS_CALLBACK_CLIENT_CONNECTION_ERROR. When
+           that happens, `state` gets stuck at CONNECTING forever and
+           the retry branch below never fires again - this is exactly
+           what caused a real 18h+ run to never recover. If we've been
+           "connecting" longer than any legitimate handshake could
+           take, force it back to DISCONNECTED ourselves so the retry
+           logic runs regardless of whether lws ever tells us it failed. */
         if (st == CONN_CONNECTING) {
             struct timespec now;
             clock_gettime(CLOCK_MONOTONIC, &now);
@@ -215,45 +198,39 @@ void *producer_thread_main(void *arg)
             if (down_secs >= WIFI_RESET_THRESHOLD_SEC &&
                 since_last_reset_secs >= WIFI_RESET_COOLDOWN_SEC) {
                 /* WebSocket-level retries alone haven't recovered the
-                 * link in a long time - assume the Wi-Fi association
-                 * itself is stuck and force a reset at the OS level.
-                 * wifi_interface_reset() now blocks until it has
-                 * verified an actual IPv4 address (or given up), so
-                 * its return value tells us whether this genuinely
-                 * fixed things rather than just having "run". */
+                   link in a long time - assume the Wi-Fi association
+                   itself is stuck and force a reset at the OS level.
+                   wifi_interface_reset() now blocks until it has
+                   verified an actual IPv4 address (or given up), so
+                   its return value tells us whether this genuinely
+                   fixed things rather than just having "run". */
                 int reset_ok = (wifi_interface_reset(WIFI_IFACE) == 0);
                 last_reset_time = now;
                 have_last_reset = 1;
 
                 if (reset_ok) {
-                    /* Confirmed the link is actually back - clear the
-                     * outage clock so a future drop starts its own
-                     * fresh threshold instead of inheriting this one. */
+                    /* Confirmed the link is actually back - clear the outage clock so a future drop starts its own fresh threshold instead of inheriting this one. */
                     lwsl_notice("Jetstream: Wi-Fi reset verified connectivity restored\n");
                     have_disconnect_since = 0;
                 } else {
                     /* Toggle ran but did not restore a usable address.
-                     * Previously this fell straight through to a full
-                     * WIFI_RESET_COOLDOWN_SEC wait before trying again,
-                     * which is what produced multi-hour dead windows
-                     * when a single toggle wasn't enough. Shrink the
-                     * effective wait before the next attempt instead of
-                     * silently accepting the full cooldown. */
+                       Previously this fell straight through to a full
+                       WIFI_RESET_COOLDOWN_SEC wait before trying again,
+                       which is what produced multi-hour dead windows
+                       when a single toggle wasn't enough. Shrink the
+                       effective wait before the next attempt instead of
+                       silently accepting the full cooldown. */
                     lwsl_warn("Jetstream: Wi-Fi reset did NOT restore connectivity; "
                               "will retry reset sooner than the normal cooldown\n");
                     double shortened = WIFI_RESET_COOLDOWN_SEC / 4.0;
                     if (shortened < WIFI_RESET_RETRY_MIN_SEC)
                         shortened = WIFI_RESET_RETRY_MIN_SEC;
-                    /* Pretend the last reset happened further in the
-                     * past than it did, so since_last_reset_secs clears
-                     * the cooldown gate after `shortened` seconds. */
+                    /* Pretend the last reset happened further in the past than it did, so since_last_reset_secs clears the cooldown gate after `shortened` seconds. */
                     last_reset_time.tv_sec -= (time_t)(WIFI_RESET_COOLDOWN_SEC - shortened);
                 }
             }
 
-            /* Back off, then retry. Exponential with a cap, so a long
-             * outage doesn't spin the network stack needlessly, but a
-             * short blip still recovers within a second or two. */
+            /* Back off, then retry. Exponential with a cap, so a long outage doesn't spin the network stack needlessly, but a short blip still recovers within a second or two. */
             struct timespec ts;
             ts.tv_sec  = backoff_ms / 1000;
             ts.tv_nsec = (long)(backoff_ms % 1000) * 1000000L;
